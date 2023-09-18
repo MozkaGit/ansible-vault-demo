@@ -1,0 +1,44 @@
+---
+- name: "Apache installation"
+  hosts: prod
+  become: true
+  vars_files:
+    - files/secrets/credentials.vault
+  pre_tasks:
+    - name: Install EPEL repo
+      package: name=epel-release state=present
+      when: ansible_distribution == "CentOS"
+
+    - name: download pip script
+      get_url:
+        url: https://bootstrap.pypa.io/pip/2.7/get-pip.py 
+        dest: /tmp/get-pip.py 
+
+    - name: install python-pip
+      command: python2.7 /tmp/get-pip.py
+
+    - name: Install docker python
+      pip: name=docker-py
+
+  tasks:
+    - name: "Install wget & git with Yum"
+      yum:
+        name: "{{ item }}"
+        state: present
+      loop:
+        - git
+        - wget
+      when: ansible_distribution == "CentOS"
+
+    - name: "Copy template index.html to client"
+      template:
+        src: index.html.j2
+        dest: /home/vagrant/index.html
+
+    - name: "Create apache container"
+      docker_container:
+        name: apache
+        image: httpd
+        ports: "80:80"
+        volumes:
+          - /home/vagrant/index.html:/usr/local/apache2/htdocs/index.html
